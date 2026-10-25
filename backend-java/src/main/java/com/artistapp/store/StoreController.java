@@ -55,7 +55,7 @@ public class StoreController {
     @GetMapping("/cart")
     public Map<String,Object> cart(Authentication auth){
         long uid=uid(auth);Long cartId=findCart(uid);
-        List<Map<String,Object>> items=cartId==null?List.of():jdbc.queryForList("SELECT p.id AS product_id,p.nombre,p.descripcion,p.precio,p.cantidad,p.imagen,p.id_tipo,p.id_usuario,p.archivos FROM cesta_producto cp JOIN productos p ON p.id=cp.id_producto WHERE cp.id_cesta=? ORDER BY cp.id",cartId);
+        List<Map<String,Object>> items=cartId==null?List.of():jdbc.queryForList("SELECT p.id AS product_id,p.nombre,p.descripcion,p.precio,p.cantidad,p.imagen,p.id_tipo,p.id_usuario FROM cesta_producto cp JOIN productos p ON p.id=cp.id_producto WHERE cp.id_cesta=? ORDER BY cp.id",cartId);
         BigDecimal total=items.stream().map(x->new BigDecimal(x.get("precio").toString())).reduce(BigDecimal.ZERO,BigDecimal::add);
         return Map.of("id",cartId==null?0:cartId,"items",items,"total",total);
     }
