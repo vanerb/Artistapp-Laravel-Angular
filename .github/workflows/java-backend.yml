@@ -1,0 +1,27 @@
+name: Java backend build
+
+on:
+  push:
+    branches:
+      - migration/java-spring-boot
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend-java
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Compile and test
+        run: mvn --batch-mode verify
