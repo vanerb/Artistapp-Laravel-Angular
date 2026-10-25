@@ -126,6 +126,41 @@ public class StoreController {
         return one("SELECT * FROM pedidos WHERE id=?",id);
     }
 
+    @PostMapping("/orders/{id}/cancel")
+    @Transactional
+    public Map<String,Object> cancelOrder(@PathVariable long id,Authentication auth){
+        long uid=uid(auth);Map<String,Object> order=one("SELECT * FROM pedidos WHERE id=?",id);
+        if(((Number)order.get("id_usuario")).longValue()!=uid&&role(uid)!=1)throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        String state=String.valueOf(order.get("estado"));
+        if(Set.of("cancelado","cancelled","reembolsado").contains(state.toLowerCase()))return order;
+        if(Set.of("enviado","entregado").contains(state.toLowerCase()))throw new ResponseStatusException(HttpStatus.CONFLICT,"No se puede cancelar un pedido enviado o entregado desde este endpoint.");
+        List<Map<String,Object>> items=jdbc.queryForList("SELECT id_producto FROM detalles_pedido WHERE id_pedido=?",id);
+        for(Map<String,Object> item:items)jdbc.update("UPDATE productos SET cantidad=cantidad+1 WHERE id=?",item.get("id_producto"));
+        jdbc.update("UPDATE pedidos SET estado='cancelado' WHERE id=?",id);
+        return one("SELECT * FROM pedidos WHERE id=?",id);
+    }
+
+    @PatchMapping("/orders/{id}/items/{detail}/confirm-received")
+    @Transactional
+    public Map<String,Object> confirmReceived(@PathVariable long id,@PathVariable long detail,Authentication auth){
+        long uid=uid(auth);
+        Map<String,Object> order=one("SELECT * FROM pedidos WHERE id=?",id);
+        if(((Number)order.get("id_usuario")).longValue()!=uid)throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        if(!exists("SELECT COUNT(*) FROM detalles_pedido WHERE id=? AND id_pedido=?",detail,id))throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        jdbc.update("UPDATE pedidos SET estado='entregado' WHERE id=?",id);
+        return one("SELECT * FROM pedidos WHERE id=?",id);
+    }
+
+    @DeleteMapping("/orders/{id}")
+    public Map<String,String> deleteOrder(@PathVariable long id,Authentication auth){
+        long uid=uid(auth);Map<String,Object> order=one("SELECT * FROM pedidos WHERE id=?",id);
+        if(((Number)order.get("id_usuario")).longValue()!=uid&&role(uid)!=1)throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        if(!"cancelado".equalsIgnoreCase(String.valueOf(order.get("estado"))))throw new ResponseStatusException(HttpStatus.CONFLICT,"Solo se pueden eliminar pedidos cancelados.");
+        jdbc.update("DELETE FROM detalles_pedido WHERE id_pedido=?",id);
+        jdbc.update("DELETE FROM pedidos WHERE id=?",id);
+        return Map.of("message","Pedido eliminado.");
+    }
+
     private void validateProduct(ProductBody b,boolean required){
         if(required&&(b.nombre()==null||b.nombre().isBlank()||b.descripcion()==null||b.descripcion().isBlank()||b.precio()==null||b.cantidad()==null||b.id_tipo()==null))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Completa todos los campos del producto.");
