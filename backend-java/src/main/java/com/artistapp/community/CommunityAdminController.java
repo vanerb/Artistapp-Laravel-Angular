@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -14,7 +15,8 @@ import java.util.*;
 @RequestMapping("/api")
 public class CommunityAdminController {
     private final JdbcTemplate jdbc;
-    public CommunityAdminController(JdbcTemplate jdbc){this.jdbc=jdbc;}
+    private final PasswordEncoder passwordEncoder;
+    public CommunityAdminController(JdbcTemplate jdbc,PasswordEncoder passwordEncoder){this.jdbc=jdbc;this.passwordEncoder=passwordEncoder;}
     public record NoticeBody(@Size(max=255) String titulo,@Size(max=255) String aviso,String fecha_publicacion,String hora) {}
     public record CategoryBody(@NotBlank @Size(max=255) String nombre) {}
     public record ReportBody(@NotBlank @Size(max=255) String informe,Long id_usuarioreferenciado,String estado) {}
@@ -108,7 +110,7 @@ public class CommunityAdminController {
         int role;try{role=Integer.parseInt(string(b,"id_tipo"));}catch(Exception e){throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Rol no válido.");}
         if(!Set.of(1,3,5,7).contains(role))throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Rol no válido.");
         if(password.length()<8)throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Contraseña demasiado corta.");
-        jdbc.update("INSERT INTO usuarios (nombre,apellidos,usuario,correo,contrasena,id_tipo,imagen,biografia) VALUES (?,?,?,?,?,?,?,?)",nombre,apellidos,usuario,correo,password,role,"media/no-user.png","Aún no tiene");
+        jdbc.update("INSERT INTO usuarios (nombre,apellidos,usuario,correo,contrasena,id_tipo,imagen,biografia) VALUES (?,?,?,?,?,?,?,?)",nombre,apellidos,usuario,correo,passwordEncoder.encode(password),role,"media/no-user.png","Aún no tiene");
         return one("SELECT id,nombre,apellidos,usuario,correo,id_tipo,imagen,biografia FROM usuarios WHERE id=LAST_INSERT_ID()");
     }
     @PatchMapping("/admin/users/{id}")
