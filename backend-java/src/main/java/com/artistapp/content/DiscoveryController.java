@@ -66,6 +66,23 @@ public class DiscoveryController {
         return page(data,total==null?0:total,page,size);
     }
 
+    @GetMapping("/events")
+    public Map<String,Object> events(@RequestParam(required=false) String q,
+                                    @RequestParam(required=false) String desde,
+                                    @RequestParam(required=false) String hasta,
+                                    @RequestParam(defaultValue="1") int page) {
+        int size=24,offset=(Math.max(1,page)-1)*size;
+        String joins=" FROM eventos e JOIN usuarios u ON u.id=e.id_usuario ";
+        String filter=" WHERE e.fecha_fin >= CURDATE() "; List<Object> args=new ArrayList<>();
+        if(q!=null&&!q.isBlank()){filter+=" AND (e.nombre LIKE ? OR e.ubicacion LIKE ?) ";args.add("%"+q+"%");args.add("%"+q+"%");}
+        if(desde!=null&&!desde.isBlank()){filter+=" AND e.fecha_fin >= ? ";args.add(desde);}
+        if(hasta!=null&&!hasta.isBlank()){filter+=" AND e.fecha_inicio <= ? ";args.add(hasta);}
+        Long total=jdbc.queryForObject("SELECT COUNT(*)"+joins+filter,Long.class,args.toArray());
+        args.add(size);args.add(offset);
+        List<Map<String,Object>> data=jdbc.queryForList("SELECT e.*,u.usuario AS organizer_name,u.imagen AS organizer_image,(SELECT COUNT(*) FROM listado_evento le WHERE le.id_evento=e.id AND le.estado='aceptado') AS participant_count"+joins+filter+" ORDER BY e.fecha_inicio LIMIT ? OFFSET ?",args.toArray());
+        return page(data,total==null?0:total,page,size);
+    }
+
     @GetMapping("/categories")
     public List<Map<String,Object>> categories(){return jdbc.queryForList("SELECT id,nombre FROM categoria ORDER BY nombre");}
     @GetMapping("/product-types")
